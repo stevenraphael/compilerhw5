@@ -9,7 +9,7 @@
 
 using namespace mlir;
 
-namespace zero {
+namespace demanded {
 
 void printAnnotated(
     Operation *root,
@@ -86,4 +86,4 @@ void printAnnotated(
   }
 }
 
-} // namespace zero
+} // namespace demanded

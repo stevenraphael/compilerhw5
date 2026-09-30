@@ -19,63 +19,54 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ZERO_DOMAIN_H
-#define ZERO_DOMAIN_H
+#ifndef DEMANDED_DOMAIN_H
+#define DEMANDED_DOMAIN_H
 
 #include "llvm/Support/raw_ostream.h"
 
-namespace zero {
+namespace demanded {
 
-enum class Kind { Bottom, Zero, NonZero, Top };
+typedef uint64_t Kind;
 
-inline const char *name(Kind kind) {
-  switch (kind) {
-  case Kind::Bottom:
-    return "bottom";
-  case Kind::Zero:
-    return "zero";
-  case Kind::NonZero:
-    return "nonzero";
-  case Kind::Top:
-    return "top";
+
+static std::string name(Kind kind) {
+  std::string s;
+  s.reserve(64);
+  for(int i=63;i>=0;i--){
+    s+=(((kind>>i)%2)==1)?"1":"0";
   }
-  return "top";
+  return s;
 }
 
-struct ZeroState {
-  Kind kind = Kind::Bottom;
+struct DemandedState {
+  Kind kind = 0;
 
-  ZeroState() = default;
-  /* implicit */ ZeroState(Kind kind) : kind(kind) {}
+  DemandedState() = default;
+  /* implicit */ DemandedState(Kind kind) : kind(kind) {}
 
-  static ZeroState bottom() { return Kind::Bottom; }
-  static ZeroState top() { return Kind::Top; }
+  static DemandedState bottom() { return 0; }
+  static DemandedState top() { return ~(static_cast<uint64_t>(0)); }
 
-  bool isBottom() const { return kind == Kind::Bottom; }
+  bool isBottom() const { return kind == 0; }
 
   /// Least upper bound.  Two disagreeing facts lose all information.
-  static ZeroState join(const ZeroState &lhs, const ZeroState &rhs) {
-    if (lhs.kind == Kind::Bottom)
-      return rhs;
-    if (rhs.kind == Kind::Bottom)
-      return lhs;
-    if (lhs.kind == rhs.kind)
-      return lhs;
-    return top();
+  static DemandedState join(const DemandedState &lhs, const DemandedState &rhs) {
+    DemandedState s(lhs.kind | rhs.kind);
+    return s;
   }
 
-  bool operator==(const ZeroState &other) const { return kind == other.kind; }
-  bool operator!=(const ZeroState &other) const { return kind != other.kind; }
+  bool operator==(const DemandedState &other) const { return kind == other.kind; }
+  bool operator!=(const DemandedState &other) const { return kind != other.kind; }
 
   void print(llvm::raw_ostream &os) const { os << name(kind); }
 };
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
-                                     const ZeroState &state) {
+                                     const DemandedState &state) {
   state.print(os);
   return os;
 }
 
-} // namespace zero
+} // namespace demanded
 
 #endif

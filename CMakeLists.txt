@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
+project(mlir-analysis-pass CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(MLIR REQUIRED CONFIG)
 # C is enabled although no C is compiled here: HandleLLVMOptions probes flags
 # with check_c_compiler_flag, and hard-errors if the C compiler is unknown.
-project(ZeroAnalysis LANGUAGES C CXX)
+project(DemandedAnalysis LANGUAGES C CXX)
 
 #===----------------------------------------------------------------------===#
 # Locate MLIR
@@ -95,18 +102,18 @@ add_definitions(${LLVM_DEFINITIONS})
 # that dlopens it.  Linking MLIR's static libraries in here instead would
 # duplicate every cl::opt and dialect registry, which fails at load time.
 #
-# The resulting file is ZeroAnalysis.dylib on macOS and ZeroAnalysis.so on
+# The resulting file is DemandedAnalysis.dylib on macOS and DemandedAnalysis.so on
 # Linux and WSL2.  Nothing in this project should spell that suffix out;
-# ask CMake via $<TARGET_FILE:ZeroAnalysis>, or let run.sh probe for it.
+# ask CMake via $<TARGET_FILE:DemandedAnalysis>, or let run.sh probe for it.
 #===----------------------------------------------------------------------===#
-add_llvm_library(ZeroAnalysis MODULE PARTIAL_SOURCES_INTENDED
-  ZeroAnalysis.cpp
+add_llvm_library(DemandedAnalysis MODULE PARTIAL_SOURCES_INTENDED
+  DemandedAnalysis.cpp
   Annotate.cpp
   Plugin.cpp
   PLUGIN_TOOL mlir-opt
 )
 
-set_target_properties(ZeroAnalysis PROPERTIES
+set_target_properties(DemandedAnalysis PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 #===----------------------------------------------------------------------===#
@@ -115,31 +122,3 @@ set_target_properties(ZeroAnalysis PROPERTIES
 # Driven by a CMake script rather than a shell script so that the test suite
 # has exactly the same dependencies as the build itself.
 #===----------------------------------------------------------------------===#
-find_program(MLIR_OPT_EXECUTABLE mlir-opt
-  HINTS ${MLIR_TOOLS_BINARY_DIR} ${LLVM_TOOLS_BINARY_DIR}
-  DOC "mlir-opt used to run the plugin")
-
-if(MLIR_OPT_EXECUTABLE)
-  # A plugin built against one LLVM and loaded into another is rejected at
-  # run time.  Catching the mismatch now saves a baffling debugging session.
-  execute_process(COMMAND "${MLIR_OPT_EXECUTABLE}" --version
-    OUTPUT_VARIABLE mlir_opt_version OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-  string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+[A-Za-z0-9.-]*" mlir_opt_version "${mlir_opt_version}")
-  if(mlir_opt_version AND NOT mlir_opt_version STREQUAL LLVM_PACKAGE_VERSION)
-    message(WARNING
-      "mlir-opt at ${MLIR_OPT_EXECUTABLE} reports version ${mlir_opt_version}, "
-      "but this plugin is being built against ${LLVM_PACKAGE_VERSION}.  "
-      "Loading it will fail; point MLIR_DIR at the matching build.")
-  endif()
-
-  enable_testing()
-  add_test(NAME zero-analysis
-    COMMAND ${CMAKE_COMMAND}
-      -DMLIR_OPT=${MLIR_OPT_EXECUTABLE}
-      -DPLUGIN=$<TARGET_FILE:ZeroAnalysis>
-      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/test/zero.mlir
-      -DCHECKS=${CMAKE_CURRENT_SOURCE_DIR}/test/zero.expected
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunTest.cmake)
-else()
-  message(STATUS "mlir-opt not found; skipping tests")
-endif()

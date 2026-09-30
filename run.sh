@@ -11,7 +11,7 @@ set -eu
 BUILD_DIR="${BUILD_DIR:-build}"
 
 if [ -z "${PLUGIN:-}" ]; then
-  for candidate in "$BUILD_DIR"/ZeroAnalysis.so "$BUILD_DIR"/ZeroAnalysis.dylib; do
+  for candidate in "$BUILD_DIR"/DemandedAnalysis.so "$BUILD_DIR"/DemandedAnalysis.dylib; do
     if [ -f "$candidate" ]; then
       PLUGIN="$candidate"
       break
@@ -32,5 +32,5 @@ fi
 # stdout is the unchanged IR and stderr is the annotated listing; send the
 # listing to this script's stdout so it can be piped or paged.
 mlir-opt --load-pass-plugin="$PLUGIN" \
-         --pass-pipeline='builtin.module(zero-analysis)' \
+         --pass-pipeline='builtin.module(demanded-analysis)' \
          "$@" 2>&1 1>/dev/null
